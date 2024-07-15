@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/cosmo/bootstrap.min.css" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        .chat-container {
+            margin-top: 20px;
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .chat-message {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-custom navbar-expand-lg">
+    <a class="navbar-brand" href="#">Chat Application</a>
+</nav>
+
+<div class="container chat-container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    Chat Room
+                </div>
+                <div class="card-body">
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <form id="chatForm">
+                        <div class="form-group">
+                            <input type="text" id="sender" name="sender" placeholder="Your name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="message" name="message" placeholder="Type a message" class="form-control" required>
+                        </div>
+                        <div class="form-group text-center">
+                            <button type="submit" class="btn btn-success">Send</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var stompClient = null;
+    var messagesMap = {};
+
+    function connect() {
+        var socket = new SockJS('/gs-guide-websocket');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/chats', function (message) {
+                var chatMessage = JSON.parse(message.body);
+                updateChatMessage(chatMessage);
+            });
+            stompClient.subscribe('/topic/chats/delete', function (message) {
+                var messageId = JSON.parse(message.body);
+                removeChatMessage(messageId);
+            });
+        });
+    }
+
+    function updateChatMessage(message) {
+        if (messagesMap[message.id]) {
+            updateMessage(message);
+        } else {
+            showMessage(message);
+        }
+    }
+
+    function showMessage(message) {
+        messagesMap[message.id] = message;
+        var messageElement = $("<div class='chat-message' data-id='" + message.id + "'>" +
+            "<div class='message-text'><strong>" + message.sender + ":</strong> " + message.message + "</div>" +
+            "<div>" +
+            "<button class='btn btn-sm btn-primary edit-button'>Edit</button> " +
+            "<button class='btn btn-sm btn-warning hide-button'>Hide</button> " +
+            "<button class='btn btn-sm btn-danger delete-button'>Delete</button>" +
+            "</div>" +
+            "</div>");
+        $("#chatMessages").append(messageElement);
+
+        messageElement.find(".edit-button").on("click", function () {
+            editMessage(message.id, message.message);
+        });
+
+        messageElement.find(".hide-button").on("click", function () {
+            hideMessage(message.id);
+        });
+
+        messageElement.find(".delete-button").on("click", function () {
+            deleteMessage(message.id);
+        });
+    }
+
+    function updateMessage(message) {
+        messagesMap[message.id] = message;
+        var messageElement = $("div.chat-message[data-id='" + message.id + "']");
+        if (messageElement.length) {
+            messageElement.find(".message-text").html("<strong>" + message.sender + ":</strong> " + message.message);
+        } else {
+            showMessage(message);
+        }
+    }
+
+    function removeChatMessage(id) {
+        delete messagesMap[id];
+        $("div.chat-message[data-id='" + id + "']").remove();
+    }
+
+    function editMessage(id, oldMessage) {
+        var newMessage = prompt("Edit your message:", oldMessage);
+        if (newMessage !== null) {
+            $.ajax({
+                url: "/api/chats/update/" + id,
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(newMessage),
+                success: function (updatedMessage) {
+                    updateMessage(updatedMessage);
+                }
+            });
+        }
+    }
+
+    function hideMessage(id) {
+        $.ajax({
+            url: "/api/chats/hide/" + id,
+            type: "POST",
+            success: function (hiddenMessage) {
+                updateMessage(hiddenMessage);
+            }
+        });
+    }
+
+    function deleteMessage(id) {
+        $.ajax({
+            url: "/api/chats/delete/" + id,
+            type: "POST",
+            success: function () {
+                removeChatMessage(id);
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        connect();
+
+        $("#chatForm").on("submit", function (e) {
+            e.preventDefault();
+
+            var sender = $("#sender").val();
+            var message = $("#message").val();
+
+            stompClient.send("/app/sendMessage", {}, JSON.stringify({ 'sender': sender, 'message': message }));
+
+            $("#message").val('');
+        });
+
+        $.ajax({
+            url: "/api/chats/list",
+            type: "GET",
+            success: function (data) {
+                data.forEach(showMessage);
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

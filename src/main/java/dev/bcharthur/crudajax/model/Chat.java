@@ -1,5 +1,6 @@
 package dev.bcharthur.crudajax.model;
 
+import dev.bcharthur.crudajax.listener.ChatEventListener;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
@@ -12,14 +13,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@EntityListeners({AuditingEntityListener.class, dev.bcharthur.crudajax.listener.StudentEventListener.class})
-public class Student {
+@EntityListeners({AuditingEntityListener.class, ChatEventListener.class})
+public class Chat {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private Long id;
-    private String studentname;
-    private String course;
-    private int fee;
+    private String sender;
+    private String message;
 
     @CreatedDate
     private LocalDateTime createdDate;
@@ -27,7 +27,7 @@ public class Student {
     @LastModifiedDate
     private LocalDateTime lastModifiedDate;
 
-    public Student() {
+    public Chat() {
         this.createdDate = LocalDateTime.now();
         this.lastModifiedDate = LocalDateTime.now();
     }
@@ -42,28 +42,20 @@ public class Student {
         this.id = id;
     }
 
-    public String getStudentname() {
-        return studentname;
+    public String getSender() {
+        return sender;
     }
 
-    public void setStudentname(String studentname) {
-        this.studentname = studentname;
+    public void setSender(String sender) {
+        this.sender = sender;
     }
 
-    public String getCourse() {
-        return course;
+    public String getMessage() {
+        return message;
     }
 
-    public void setCourse(String course) {
-        this.course = course;
-    }
-
-    public int getFee() {
-        return fee;
-    }
-
-    public void setFee(int fee) {
-        this.fee = fee;
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public LocalDateTime getCreatedDate() {
@@ -82,7 +74,3 @@ public class Student {
         this.lastModifiedDate = lastModifiedDate;
     }
 }
-
-
-
-
